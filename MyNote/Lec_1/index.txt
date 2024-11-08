@@ -1,0 +1,18 @@
+// 
+
++ Keywords (SELECT, FROM, WHERE) are case-insensitive.
++ Table and column names are case-insensitive if 
+    unquoted but case-sensitive if double-quoted.
++ String literals ('Seattle', 'seattle') are case-sensitive.
++ Single quotes ' ' are for string literals, while double quotes 
+    " " are for identifiers (like column or table names) and enforce 
+    case sensitivity.
+
+EX:
+SELECT * FROM city WHERE name = 'Seattle';  -- Finds rows where name is 'Seattle'
+SELECT * FROM city WHERE name = 'seattle';  -- Finds rows where name is 'seattle' (not the same as 'Seattle')
+
+SELECT * FROM city WHERE name ILIKE 'seattle';  -- Case-insensitive comparison
+
+SELECT 'abc';    -- This is a constant/literal, so it will return 'abc'
+SELECT "abc";    -- This is treated as an identifier. PostgreSQL will look for a column or table named `abc`

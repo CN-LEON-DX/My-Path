@@ -1,0 +1,32 @@
+sudo apt update
+// download postgresql
+sudo apt install postgresql postgresql-contrib
+
+// check list service currently using after installed
+systemctl list-units --type=service | grep postgres
+
+// start the service if it is unable, and it also depends on your postgresql version.
+sudo systemctl start postgresql@16-main
+sudo systemctl enable postgresql@16-main
+
+// create postgresql then test connection 
+if password was incorrect
+.. 
+check config below:
+sudo -i -u postgres
+// #command for help then using:
+psql 
+//
+# ALTER USER postgres PASSWORD 'new pass';
+
+// then check the connection:
+⚡visitor14 ❯❯ psql -U postgres -h localhost -W
+ 
+// the result may look like:
+Password: 
+psql (16.4 (Ubuntu 16.4-0ubuntu0.24.04.2))
+SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, compression: off)
+Type "help" for help.
+
+postgres=# 
+
