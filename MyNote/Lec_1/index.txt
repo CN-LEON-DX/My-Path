@@ -1,18 +1,198 @@
-// 
 
-+ Keywords (SELECT, FROM, WHERE) are case-insensitive.
-+ Table and column names are case-insensitive if 
-    unquoted but case-sensitive if double-quoted.
-+ String literals ('Seattle', 'seattle') are case-sensitive.
-+ Single quotes ' ' are for string literals, while double quotes 
-    " " are for identifiers (like column or table names) and enforce 
-    case sensitivity.
+Quiz 20:
+Product (pname,  price, category, manufacturer)
+Company (cname, stockPrice, country)
 
-EX:
-SELECT * FROM city WHERE name = 'Seattle';  -- Finds rows where name is 'Seattle'
-SELECT * FROM city WHERE name = 'seattle';  -- Finds rows where name is 'seattle' (not the same as 'Seattle')
+Find all Chinese companies that manufacture products both in the ‘electronic’ and ‘toy’ categories
 
-SELECT * FROM city WHERE name ILIKE 'seattle';  -- Case-insensitive comparison
+SELECT c.cname
+FROM Product as p, Company as c
+WHERE c.country = 'China' and p.category in ('electronic', 'toy') and c.cname = p.manufacturer
+GROUP BY c.cname;
 
-SELECT 'abc';    -- This is a constant/literal, so it will return 'abc'
-SELECT "abc";    -- This is treated as an identifier. PostgreSQL will look for a column or table named `abc`
+// Quizz 22:
+SELECT DISTINCT Country
+FROM Product AS p
+JOIN Company AS c ON p.Manufacturer = c.CName
+WHERE p.Category = 'Gadgets';
+
+// Quizz 22:
+Company(name, city)
+Product(pname, maker)
+Purchase(id, product, buyer)
+
+Return cities where one can find companies that manufacture products bought by Joe Blow
+
+SELECT c.city
+FROM Company as c
+WHERE c.name IN
+	(
+	SELECT p.maker
+	FROM Product as p, Purchase as purch
+	WHERE p.pname = purch.product and purch.buyer = 'Joe Blow'
+	);
+
+
+// Quizz 23:
+Product ( pname,  price, category, maker)
+Find products that are more expensive than all those produced
+By “Gizmo-Works”
+
+You can also use:   s > ALL R
+		s > ANY R
+		EXISTS R
+
+SELECT p.pname
+FROM Product as p
+WHERE p.products > ALL (
+	SELECT np.price
+	FROM Product as np
+	WHER np.maker = 'Gizmo-Works'
+	)
+
+
+Can we express this query as a single SELECT-FROM-WHERE query, without subqueries ?
+
+SELECT p1.pname
+FROM Product AS p1, Product AS p2
+WHERE p2.maker = 'Gizmo-Works'
+GROUP BY p1.pname
+HAVING p1.price > MAX(p2.price);
+
+SELECT p1.pname
+FROM Product AS p1
+JOIN (SELECT MAX(price) AS max_price
+      FROM Product
+      WHERE maker = 'Gizmo-Works') AS gizmo_max
+ON p1.price > gizmo_max.max_price;
+
+monotonicity:  tính đơn điệu là khi thêm các row vào thì thông tin bên trong các bảng thì thêm có các thông tin chứ không làm thay đổi hay mất đi cấu trúc các phần trước.
+
+
+// Quiz 32:
+Movie (title,  year,  director, length)
+Find movies whose title appears more than once.
+
+SELECT DISTINCT title 
+FROM Movie as x
+WHERE year <> ANY
+	(
+	SELECT year
+	FROM Movie
+	WHERE title = x.title
+	);
+	
+<> ANY == different from at least one
+
+// Quiz 33:
+Product ( pname,  price, category, maker, year)
+Find products (and their manufacturers) that are more expensive than all products made by the same manufacturer before 1972
+
+SELECT p.pname
+FROM Product as p
+WHERE p.price > ALL
+	 (
+		SELECT np.price
+		FROM Product as np
+		WHERE np.maker = p.maker and np.year < 1972
+		);
+		
+OR
+
+SELECT p.pname
+FROM Product as p
+WHERE p.price >
+	 (
+		SELECT MAX(np.price)
+		FROM Product as np
+		WHERE np.maker = p.maker and np.year < 1972
+		);
+------------------------------------------------------------
+II. Aggregation
+
+
+SELECT  avg(price)
+FROM      Product
+WHERE   maker=“Toyota”
+
+SELECT  count(*)
+FROM     Product
+WHERE   year > 1995
+
+SQL supports several aggregation operations:
+
+     sum, count, min, max, avg
+     
+Except count, all aggregations apply to a single attribute
+
+---------------------------------------------------------
+
+SELECT       product, Sum(price*quantity) AS TotalSales
+FROM          Purchase
+WHERE       date > ‘10/1/2005’
+GROUP BY  product
+
+
+==> Is it the same ? By using Group, once data is grouped, aggreation func such as COUNT, SUM, AVG, will be applied to each group.
+
+SELECT DISTINCT  x.product, (SELECT Sum(y.price*y.quantity)
+                                                      FROM     Purchase y
+                                                      WHERE x.product = y.product 
+                                                                   AND y.date > ‘10/1/2005’)
+                                                    AS TotalSales
+FROM          Purchase x
+WHERE       x.date > ‘10/1/2005’
+
+
+---------------------------------------------------------------
+
+HAVING CLAUSE
+
+Same query, except that we consider only products that had
+at least 100 buyers.
+
+
+SELECT       product, Sum(price * quantity)
+FROM          Purchase
+WHERE       date > ‘10/1/2005’
+GROUP BY product
+HAVING      Sum(quantity) > 30
+
+THe sum(quantity) in the clause works with for each groups of products.
+SQL first caculate the sum of quantity and then applies the condition you specified SUM(quantity) > 30;
+
+Why no need to select quantity:
++ Even though you'r not selecting quantity in the SELECT clause it, is still used in the background during aggregation.
++ The SUM(quantity) in the HAVING clause works because, for each group of products, SQL first calculates the sum of quantity and then applies the condition you specified (SUM(quantity) > 30).
+
+===> Why No Need to Select quantity:
+
+Even though you're not selecting quantity in the SELECT clause, it is still used in the background during aggregation.
+The SUM(quantity) is an aggregate function that is calculated during the GROUP BY operation. It sums up the quantity for each group (each product), and this sum is available to be used in the HAVING clause to filter the results.
+You don't need to select quantity because you’re only interested in the aggregated result (the sum of quantity) and not in showing the individual quantities in the final result.
+
+===========================================================
+
+
+SELECT    S
+FROM       R1,…,Rn
+WHERE    C1
+GROUP BY a1,…,ak
+HAVING     C2
+
+S = may contain attributes a1,…,ak and/or any aggregates but NO OTHER ATTRIBUTES
+C1 = is any condition on the attributes in R1,…,Rn
+C2 = is any condition on aggregate expressions
+
+
+Evaluation steps:
+Evaluate FROM-WHERE, apply condition C1
+Group by the attributes a1,…,ak 
+Apply condition C2 to each group (may have aggregates)
+Compute aggregates in S and return the result
+
+Conclusion:
+=>> Quantifier allow us to compare a value to a set of values.
+=>> Intersection return rows in the both queries.
+=>> While EXCEPT that are the first query but not in the second.
+
